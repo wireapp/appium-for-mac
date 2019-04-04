@@ -1846,7 +1846,7 @@ const NSTimeInterval kModifierPause = 0.05;
 #pragma mark - Notifications
 - (void)fnKeyTrigger:(NSNotification *)notification
 {
-    NSLog(@"fnKeyTrigger: session isCanceled set YES: %@", self.sessionId);
+    NSLog(@"No cancel of session %@ because this is a bug (we are not pressing fn key)", self.sessionId);
     self.isCanceled = YES;
 }
 
