@@ -250,15 +250,21 @@
     return [self executeWebDriverCommandWithPath:path data:nil onMainThread:YES commandBlock:^(AfMSessionController *session, NSDictionary *commandParams, int *statusCode)
     {
         // Ask the session to put a screen shot into the clipboard.
-        if ([session screenCaptureToClipboard]) {
-            NSArray *objectsToPaste = [[NSPasteboard generalPasteboard] readObjectsForClasses:@[[NSImage class]] options:@{}];
-            NSImage *image = [objectsToPaste objectAtIndex:0];
-            NSString *base64Image = [[image TIFFRepresentation] base64EncodedString];
-            return [AppiumMacHTTPJSONResponse responseWithJson:base64Image status:kAfMStatusCodeSuccess session:session.sessionId];
+        if (![session screenCaptureToClipboard]) {
+            return [AppiumMacHTTPJSONResponse responseWithJson:nil
+                                                        status:kAfMStatusCodeSuccess
+                                                       session:session.sessionId];
         }
-        else {
-            return [AppiumMacHTTPJSONResponse responseWithJson:nil status:kAfMStatusCodeSuccess session:session.sessionId];
-        }
+        NSArray *objectsToPaste = [[NSPasteboard generalPasteboard] readObjectsForClasses:@[[NSImage class]]
+                                                                                  options:@{}];
+        NSImage *image = [objectsToPaste objectAtIndex:0];
+        NSData *tiffData = [image TIFFRepresentation];
+        NSData *pngData = [[NSBitmapImageRep imageRepWithData:tiffData] representationUsingType:NSPNGFileType
+                                                                                     properties:@{}];
+        NSString *base64Image = [pngData base64EncodedString];
+        return [AppiumMacHTTPJSONResponse responseWithJson:base64Image
+                                                    status:kAfMStatusCodeSuccess
+                                                   session:session.sessionId];
     }];
 }
 
@@ -525,27 +531,22 @@
         
         AfMElementLocator *locator = [AfMElementLocator locatorWithSession:session using:using value:value];
         
-        // initialize status as though no element were found
-        *statusCode = kAfMStatusCodeNoSuchElement;
-        
         if (locator != nil)
         {
             NSMutableArray *matches = [NSMutableArray new];
             [locator findAllUsingBaseUIElement:nil results:matches statusCode:statusCode];
-            if (matches.count > 0)
-            {
-                NSMutableArray *elements = [NSMutableArray new];
-                for(PFUIElement *element in matches)
-                {
-                    session.elementIndex++;
-                    NSString *myKey = [NSString stringWithFormat:@"%d", session.elementIndex];
-                    [session.elements setValue:element forKey:myKey];
-                    [elements addObject:[NSDictionary dictionaryWithObject:myKey forKey:@"ELEMENT"]];
-                }
-                
-                return [AppiumMacHTTPJSONResponse responseWithJson:elements status:kAfMStatusCodeSuccess session:session.sessionId];
+            if (0 == matches.count) {
+                return [AppiumMacHTTPJSONResponse responseWithJson:@[] status:*statusCode session:session.sessionId];
             }
-            return [AppiumMacHTTPJSONResponse responseWithJson:nil status:kAfMStatusCodeNoSuchElement session:session.sessionId];
+            
+            NSMutableArray *elements = [NSMutableArray new];
+            for(PFUIElement *element in matches) {
+                session.elementIndex++;
+                NSString *myKey = [NSString stringWithFormat:@"%d", session.elementIndex];
+                [session.elements setObject:element forKey:myKey];
+                [elements addObject:[NSDictionary dictionaryWithObject:myKey forKey:@"ELEMENT"]];
+            }
+            return [AppiumMacHTTPJSONResponse responseWithJson:elements status:*statusCode session:session.sessionId];
         }
         return [AppiumMacHTTPJSONResponse responseWithJsonError:*statusCode session:session.sessionId];
     }];
@@ -583,7 +584,6 @@
                 return [AppiumMacHTTPJSONResponse responseWithJson:[NSDictionary dictionaryWithObject:myKey forKey:@"ELEMENT"] status:kAfMStatusCodeSuccess session:session.sessionId];
             }
         }
-        
         return [AppiumMacHTTPJSONResponse responseWithJsonError:*statusCode session:session.sessionId];
     }];
 }
@@ -601,24 +601,24 @@
         AfMElementLocator *locator = [AfMElementLocator locatorWithSession:session using:using value:value];
         
         // initialize status as though no element were found
-        *statusCode = kAfMStatusCodeNoSuchElement;
+        *statusCode = kAfMStatusCodeSuccess;
         
         if (locator != nil)
         {
             NSMutableArray *matches = [NSMutableArray new];
             [locator findAllUsingBaseUIElement:rootUIElement results:matches statusCode:statusCode];
-            if (matches.count > 0)
-            {
-                NSMutableArray *elements = [NSMutableArray new];
-                for(PFUIElement *uiElement in matches)
-                {
-                    session.elementIndex++;
-                    NSString *myKey = [NSString stringWithFormat:@"%d", session.elementIndex];
-                    [session.elements setValue:uiElement forKey:myKey];
-                    [elements addObject:[NSDictionary dictionaryWithObject:myKey forKey:@"ELEMENT"]];
-                }
-                return [AppiumMacHTTPJSONResponse responseWithJson:elements status:kAfMStatusCodeSuccess session:session.sessionId];
+            if (0 == matches.count) {
+                return [AppiumMacHTTPJSONResponse responseWithJson:@[] status:*statusCode session:session.sessionId];
             }
+            
+            NSMutableArray *elements = [NSMutableArray new];
+            for(PFUIElement *element in matches) {
+                session.elementIndex++;
+                NSString *myKey = [NSString stringWithFormat:@"%d", session.elementIndex];
+                [session.elements setObject:element forKey:myKey];
+                [elements addObject:[NSDictionary dictionaryWithObject:myKey forKey:@"ELEMENT"]];
+            }
+            return [AppiumMacHTTPJSONResponse responseWithJson:elements status:*statusCode session:session.sessionId];
         }
         
         return [AppiumMacHTTPJSONResponse responseWithJsonError:*statusCode session:session.sessionId];
